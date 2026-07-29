@@ -308,12 +308,12 @@ using Org.DEP.Application;
 **For Scenario A:**
 - [ ] Verify module class compiles (check namespaces match project)
 - [ ] Verify WebCoreModule `[DependsOn]` already includes the module types
-- [ ] Verify the solution would build — read the changed files for namespace/reference errors; do not run a build command yourself
+- [ ] Verify the solution builds successfully. In a shesha-agent ephemeral sandbox (`$SHESHA_AGENT_API_URL` set), never run the build yourself — it races the live `dotnet watch` process; instead read the changed files for namespace/reference errors, and use `shesha-developer/skills/shesha-form-edit/references/backend-restart.md`'s self-serve restart if you need to confirm it live. Everywhere else (local dev, CI), running `dotnet build` yourself is fine and the most reliable check.
 
 **For Scenario B:**
 - [ ] Verify projects are added to the solution
 - [ ] Verify WebCoreModule has been updated with dependencies
-- [ ] Verify the solution would build — read the changed files for namespace/reference errors; do not run a build command yourself
+- [ ] Verify the solution builds successfully. In a shesha-agent ephemeral sandbox (`$SHESHA_AGENT_API_URL` set), never run the build yourself — it races the live `dotnet watch` process; instead read the changed files for namespace/reference errors, and use `shesha-developer/skills/shesha-form-edit/references/backend-restart.md`'s self-serve restart if you need to confirm it live. Everywhere else (local dev, CI), running `dotnet build` yourself is fine and the most reliable check.
 
 ## Reference Files
 
