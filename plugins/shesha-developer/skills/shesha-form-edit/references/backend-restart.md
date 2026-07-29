@@ -29,21 +29,32 @@ inside a shesha-agent ephemeral session, not on a developer's machine or in CI. 
 already runs under `dotnet watch`, and a separate system handles rebuild/redeploy — **do not** take
 over the port or run `dotnet build`/`dotnet run` yourself (the Headless section below does exactly
 that, and it will race the live process, producing MSB3027/MSB3021 file-copy errors). Instead,
-trigger and wait for the restart yourself over shesha-agent's own API:
+trigger and wait for the restart yourself over shesha-agent's own API. This call **blocks until the
+rebuild actually finishes or fails** (up to ~5 minutes) — it does not just kick the restart off and
+return immediately, so there is no race to poll around and no loop needed:
 
 ```bash
-curl -X POST "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/restart-changed-apps"
+curl -X POST --max-time 330 "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/restart-changed-apps"
 
-# Poll until the backend is running (a few minutes' timeout is reasonable)
-until curl -s "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/app-statuses" \
-    | grep -q '"backend":"running"'; do
-  sleep 3
-done
+# The call above already waited for the restart to finish - one check here is enough.
+curl -s "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/app-statuses"
 ```
 
-Then verify against `$SHESHA_BACKEND_URL` (never `localhost`) — including the same 2-boot lag
-described below for a brand-new entity: poll `Crud/GetAll`, and re-run the two commands above once
-more if it 404s, since the controller only registers on the boot after `EntityConfig` is seeded.
+Then verify against `$SHESHA_BACKEND_URL` (never `localhost`) — including the 2-boot lag described
+below for a brand-new entity: poll `Crud/GetAll`; a 404 means the entity's `EntityConfig` was only
+just seeded and its dynamic controller needs one more boot. Nothing changed on disk since the first
+restart, so `restart-changed-apps` won't detect a reason to run again — force the second boot
+instead, which also blocks until it finishes:
+
+```bash
+curl -X POST --max-time 330 "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/force-restart" \
+  -H "Content-Type: application/json" -d '{"appTypes":["backend"]}'
+```
+
+Re-check `Crud/GetAll` once more — it should be live now. Then run `/test-entity-crud-api` yourself
+as the final step, exactly as the calling skill's "MANDATORY... THEN test" instruction requires —
+don't stop short and ask the user to run it themselves; the point of this whole mechanism is that you
+have everything needed to complete the loop within this turn.
 
 Skip the rest of this doc in this case — the Headless and Attended sections below both assume you can
 freely stop/rebuild/relaunch the backend process yourself, which you must never do here.

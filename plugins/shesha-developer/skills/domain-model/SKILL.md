@@ -171,7 +171,11 @@ startup. So the sequence is: make the change + migration → **rebuild + restart
 - **Attended / Visual Studio dev:** don't kill VS's host — ask the developer to rebuild + restart in VS (twice for a new entity), then continue.
 - Full runbook (shared with the form skill): `shesha-developer/skills/shesha-form-edit/references/backend-restart.md`.
 
-After the restart, you **MUST ALWAYS** run the `test-entity-crud-api` skill to verify that the changes work correctly (it needs the entity live to hit its CRUD endpoints).
+After the restart, you **MUST ALWAYS** run the `test-entity-crud-api` skill yourself to verify that
+the changes work correctly (it needs the entity live to hit its CRUD endpoints) — do not stop short
+and ask the user to run it. In the ephemeral sandbox this is fully self-contained: restart-and-wait
+→ verify `Crud/GetAll` → force a second boot if it 404s → verify again → run `test-entity-crud-api`,
+all within this turn.
 
 ## Workflow
 
