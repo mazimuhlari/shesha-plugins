@@ -42,17 +42,34 @@ Then poll `app-statuses` yourself until **`backend`** specifically reports `"run
 the one app type you actually care about, not whether every app in the session is running (an
 admin/public portal can take much longer to cold-start its own `npm install` and is irrelevant to
 whether your backend change is live). Use the Bash tool's own `timeout` parameter for the overall
-budget (e.g. 400000ms) rather than a curl flag - this is a polling loop, not a single request:
+budget (e.g. 400000ms) rather than a curl flag - this is a polling loop, not a single request.
+
+Each app's entry in `app-statuses` is an object — `{"status": "...", "errorMessage": "..."}` — not a
+plain string. **`"failed"` is a real, distinct status**: it means the build genuinely broke (a
+compile error, most often), and it will never become `"running"` on its own no matter how long you
+poll. Treat `"failed"` as a hard stop, not "still in progress":
 
 ```bash
 for i in $(seq 1 40); do
-  STATUS=$(curl -s "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/app-statuses" \
-    | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('backend','unknown'))")
+  RESPONSE=$(curl -s "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/app-statuses")
+  STATUS=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('backend',{}).get('status','unknown'))")
   echo "[$i] backend: $STATUS"
   [ "$STATUS" = "running" ] && break
+  if [ "$STATUS" = "failed" ]; then
+    ERROR=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('backend',{}).get('errorMessage','no detail'))")
+    echo "Backend build FAILED: $ERROR"
+    break
+  fi
   sleep 10
 done
 ```
+
+**If you hit the `"failed"` branch**: stop polling immediately — do not loop, retry the restart, or
+re-poll hoping it resolves itself. Read the reported error, go fix the actual source file it points
+to, then trigger `restart-changed-apps` again. Cap yourself at **2 targeted fix attempts** for the
+same error; if it still fails after that, stop and report the exact error to the user instead of
+continuing to retry — an unbounded fix-and-retry loop against an error you can't actually resolve is
+exactly the pattern that burns API credits for no progress.
 
 Then verify against `$SHESHA_BACKEND_URL` (never `localhost`) — including the 2-boot lag described
 below for a brand-new entity: poll `Crud/GetAll`; a 404 means the entity's `EntityConfig` was only
