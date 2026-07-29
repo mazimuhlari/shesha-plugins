@@ -37,16 +37,11 @@ For implementing custom channels, see [custom-channel.md](custom-channel.md).
 
 Before creating or registering a new channel, verify what channels already exist.
 
-### Via API (requires running backend)
+### Via API (requires a reachable backend)
 
-Find the backend base URL:
+Resolve `{BASE_URL}` per `shesha-developer/skills/shesha-form-edit/references/base-url-resolution.md`, then query existing channels:
 ```bash
-grep -r "ServerRootAddress" --include="appsettings*.json" backend/src/
-```
-
-Query existing channels:
-```bash
-curl -s "http://localhost:21021/api/dynamic/Shesha/NotificationChannelConfig/Crud/GetAll?properties=id name description statusLkp senderTypeName supportedFormatLkp&maxResultCount=100" | python -m json.tool
+curl -s "{BASE_URL}/api/dynamic/Shesha/NotificationChannelConfig/Crud/GetAll?properties=id name description statusLkp senderTypeName supportedFormatLkp&maxResultCount=100" | python -m json.tool
 ```
 
 The response returns `items` with each channel's `name`, `senderTypeName`, and `statusLkp` (1=Enabled, 2=Disabled, 3=Suppressed).

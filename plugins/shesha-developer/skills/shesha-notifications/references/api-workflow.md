@@ -15,17 +15,12 @@ Use this workflow to create notification types and templates directly via the ru
 
 ### Resolve backend URL
 
-Find the backend base URL from `appsettings.json`:
-```bash
-grep -r "ServerRootAddress" --include="appsettings*.json" backend/src/
-```
-
-Verify the backend is reachable:
+Resolve `{BASE_URL}` per `shesha-developer/skills/shesha-form-edit/references/base-url-resolution.md`, then verify it's reachable:
 ```bash
 curl -s -o /dev/null -w "%{http_code}" {BASE_URL}/swagger/index.html
 ```
 
-If the backend is not running (status `000` or non-`200`), inform the user and stop.
+If the backend is not reachable (status `000` or non-`200`), inform the user and stop.
 
 ### Authenticate
 

@@ -8,7 +8,11 @@ Runs as **gate 5a.5** in `shesha-claude-designer` — after structural integrity
 
 1. **Build + publish** the form via `shesha-form-edit` (Draft → Live).
 2. **Clear the form cache.** The frontend caches form markup in IndexedDB — clear `form` / `form_lookup` from `/favicon.ico` (not in-app) after every push, or you measure a ghost of the previous build.
-3. **Navigate the real path.** Open the form via **table-row → details**, never a pasted `?id=` (a direct id load 500s the subtable Crud/Create). Pin the **same viewport** used for capture (1440×900).
+3. **Navigate the real path.** Resolve the admin portal's base URL per
+   `shesha-developer/skills/shesha-form-edit/references/base-url-resolution.md` (never hardcode
+   `localhost` — a shesha-agent ephemeral session runs the portal elsewhere). Open the form via
+   **table-row → details** from there, never a pasted `?id=` (a direct id load 500s the subtable
+   Crud/Create). Pin the **same viewport** used for capture (1440×900).
 4. **Re-probe.** Run the *same* `scripts/layout-probe.js` against the rendered Shesha form → actual `layout.json`. Same instrument as capture = comparable numbers.
 5. **Diff actual vs the blueprint `assertions`** — structurally, not by pixels (next section).
 6. **Route mismatches back to `shesha-form-edit`** as concrete fixes; rebuild → re-publish → clear cache → re-probe → re-diff until every assertion passes.

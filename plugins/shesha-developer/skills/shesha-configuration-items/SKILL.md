@@ -138,17 +138,21 @@ Determine the type of change, then follow the appropriate path:
 
 ### Verification
 
-After creating or updating a configuration item, verify the NHibernate mappings work by hitting these two API endpoints (requires the server to be running with the new migration applied):
+This changed backend code, so the server needs to be running the new migration before these checks
+mean anything - see `shesha-developer/skills/shesha-form-edit/references/backend-restart.md` for
+how to rebuild/restart correctly across environments (including the ephemeral sandbox's self-serve
+restart API), and `shesha-developer/skills/shesha-form-edit/references/base-url-resolution.md` for
+`{BASE_URL}`. Once it's live, verify the NHibernate mappings work by hitting these two endpoints:
 
 **1. Verify the specific config item type:**
 ```
-GET /api/services/app/Entities/GetAll?entityType={FullyQualifiedEntityTypeName}&maxResultCount=1
+GET {BASE_URL}/api/services/app/Entities/GetAll?entityType={FullyQualifiedEntityTypeName}&maxResultCount=1
 ```
 Expected: `{"success": true, "result": {"totalCount": 0, ...}}`
 
 **2. Verify the polymorphic ConfigurationItemBase query (exercises ALL joined tables):**
 ```
-GET /api/services/app/Entities/GetAll?entityType=Shesha.Domain.ConfigurationItemBase&maxResultCount=1
+GET {BASE_URL}/api/services/app/Entities/GetAll?entityType=Shesha.Domain.ConfigurationItemBase&maxResultCount=1
 ```
 Expected: `{"success": true, "result": {"totalCount": N, ...}}` where N > 0
 

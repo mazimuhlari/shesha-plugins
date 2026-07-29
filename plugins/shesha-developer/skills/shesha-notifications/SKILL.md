@@ -53,17 +53,13 @@ Generate notification artifacts for a Shesha/.NET/ABP/NHibernate application bas
 
 ### Check 1 — Query existing channels via API
 
-Ensure the backend application is running, then call the CRUD GetAll endpoint for `NotificationChannelConfig`. Determine the correct base URL by reading `appsettings.json` for the `ServerRootAddress` setting.
+Resolve `{BASE_URL}` per `shesha-developer/skills/shesha-form-edit/references/base-url-resolution.md`, then call the CRUD GetAll endpoint for `NotificationChannelConfig`:
 
 ```bash
-# Find the backend base URL
-grep -r "ServerRootAddress" --include="appsettings*.json" backend/src/
-
-# Query existing channels (adjust URL/port to match the project)
-curl -s "http://localhost:21021/api/dynamic/Shesha/NotificationChannelConfig/Crud/GetAll?properties=id name description statusLkp senderTypeName supportedFormatLkp&maxResultCount=100" | python -m json.tool
+curl -s "{BASE_URL}/api/dynamic/Shesha/NotificationChannelConfig/Crud/GetAll?properties=id name description statusLkp senderTypeName supportedFormatLkp&maxResultCount=100" | python -m json.tool
 ```
 
-If the backend is not running, inform the user: **"The backend must be running to verify existing channels. Please start it and try again."**
+If the backend is not reachable, inform the user: **"The backend must be running to verify existing channels. Please start it and try again."**
 
 ### Check 2 — Check Startup.cs registrations
 

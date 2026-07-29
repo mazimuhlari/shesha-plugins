@@ -308,12 +308,12 @@ using Org.DEP.Application;
 **For Scenario A:**
 - [ ] Verify module class compiles (check namespaces match project)
 - [ ] Verify WebCoreModule `[DependsOn]` already includes the module types
-- [ ] Verify the solution builds successfully
+- [ ] Verify the solution would build — read the changed files for namespace/reference errors; do not run a build command yourself
 
 **For Scenario B:**
 - [ ] Verify projects are added to the solution
 - [ ] Verify WebCoreModule has been updated with dependencies
-- [ ] Verify the solution builds successfully
+- [ ] Verify the solution would build — read the changed files for namespace/reference errors; do not run a build command yourself
 
 ## Reference Files
 

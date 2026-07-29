@@ -48,10 +48,7 @@ Notify the user and stop:
 
 Before invoking any MCP form tools, confirm the backend server is reachable.
 
-1. **Detect the backend URL.** Check these sources in order:
-   - `appsettings.json` — look for `Kestrel:Endpoints:Http:Url` or similar
-   - `Properties/launchSettings.json` — look for `applicationUrl` in the `Project` profile
-   - Fall back to `http://localhost:21021`
+1. **Detect the backend URL** per `shesha-developer/skills/shesha-form-edit/references/base-url-resolution.md`.
 
 2. **Ping the backend:**
    ```powershell

@@ -8,9 +8,11 @@ Used by Step 2 of the `clean-form-config` skill to fetch a form configuration di
 
 Check these sources in order, stopping at the first match:
 
-1. `.env` in the project root — look for `NEXT_PUBLIC_BASE_URL`, `REACT_APP_BASE_URL`, or `BASE_URL`.
-2. `appsettings.json` in the backend project — look for `Kestrel:Endpoints:Http:Url`.
-3. Ask the user:
+1. **`$SHESHA_BACKEND_URL` environment variable** — set automatically in a shesha-agent ephemeral
+   session, where the backend runs in a separate process and is never reachable at `localhost`.
+2. `.env` in the project root — look for `NEXT_PUBLIC_BASE_URL`, `REACT_APP_BASE_URL`, or `BASE_URL`.
+3. `appsettings.json` in the backend project — look for `Kestrel:Endpoints:Http:Url`.
+4. Ask the user:
    > What is the base URL for your Shesha backend? (e.g. `http://localhost:21021`)
 
 Strip any trailing slash from the resolved URL. Store as `BASE_URL`.
