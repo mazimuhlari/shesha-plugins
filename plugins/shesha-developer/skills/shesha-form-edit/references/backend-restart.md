@@ -29,26 +29,41 @@ inside a shesha-agent ephemeral session, not on a developer's machine or in CI. 
 already runs under `dotnet watch`, and a separate system handles rebuild/redeploy — **do not** take
 over the port or run `dotnet build`/`dotnet run` yourself (the Headless section below does exactly
 that, and it will race the live process, producing MSB3027/MSB3021 file-copy errors). Instead,
-trigger and wait for the restart yourself over shesha-agent's own API. This call **blocks until the
-rebuild actually finishes or fails** (up to ~5 minutes) — it does not just kick the restart off and
-return immediately, so there is no race to poll around and no loop needed:
+trigger the restart yourself over shesha-agent's own API, then poll for it to finish. This is two
+steps, not one — **do not use a long `--max-time`/`-m` and expect the trigger call itself to wait
+for the rebuild**: it only waits for the old process to be confirmably replaced (a matter of
+seconds), never the full build, so a short timeout on the trigger call is correct and expected:
 
 ```bash
-curl -X POST --max-time 330 "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/restart-changed-apps"
+curl -s -X POST --max-time 60 "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/restart-changed-apps"
+```
 
-# The call above already waited for the restart to finish - one check here is enough.
-curl -s "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/app-statuses"
+Then poll `app-statuses` yourself until **`backend`** specifically reports `"running"` — check only
+the one app type you actually care about, not whether every app in the session is running (an
+admin/public portal can take much longer to cold-start its own `npm install` and is irrelevant to
+whether your backend change is live). Use the Bash tool's own `timeout` parameter for the overall
+budget (e.g. 400000ms) rather than a curl flag - this is a polling loop, not a single request:
+
+```bash
+for i in $(seq 1 40); do
+  STATUS=$(curl -s "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/app-statuses" \
+    | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('backend','unknown'))")
+  echo "[$i] backend: $STATUS"
+  [ "$STATUS" = "running" ] && break
+  sleep 10
+done
 ```
 
 Then verify against `$SHESHA_BACKEND_URL` (never `localhost`) — including the 2-boot lag described
 below for a brand-new entity: poll `Crud/GetAll`; a 404 means the entity's `EntityConfig` was only
 just seeded and its dynamic controller needs one more boot. Nothing changed on disk since the first
 restart, so `restart-changed-apps` won't detect a reason to run again — force the second boot
-instead, which also blocks until it finishes:
+instead (same two-step pattern: trigger, then poll):
 
 ```bash
-curl -X POST --max-time 330 "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/force-restart" \
+curl -s -X POST --max-time 60 "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/force-restart" \
   -H "Content-Type: application/json" -d '{"appTypes":["backend"]}'
+# then poll app-statuses for backend == "running" exactly as above
 ```
 
 Re-check `Crud/GetAll` once more — it should be live now. Then run `/test-entity-crud-api` yourself
