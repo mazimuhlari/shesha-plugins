@@ -167,15 +167,32 @@ startup. So the sequence is: make the change + migration → **rebuild + restart
   "Ephemeral / shesha-agent sandbox" section below for the exact commands.
 - **Never relaunch IIS Express outside Visual Studio** — `hostingModel=InProcess` + `processPath="%LAUNCHER_PATH%"` gives `HTTP 500.0 ANCM in-process` failure. 
 - **Headless / CI:** stop the port holder → `dotnet build` the Web.Host → launch `ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:<port> dotnet <App>.Web.Host.dll` in the background → poll `/swagger/index.html` for 200.
-- **A brand-new entity needs TWO boots** — its dynamic CRUD controller registers only on the boot *after* its `EntityConfig` is seeded; poll `…/api/dynamic/<module>/<Entity>/Crud/GetAll` and restart once more if it 404s.
+- **A brand-new entity ALWAYS needs TWO successful full boots** — its dynamic CRUD controller
+  registers only on the boot *after* its `EntityConfig` is seeded. Plan for this up front (it is
+  not a maybe) rather than discovering a 404 and reacting to it. Verify with the generic entities
+  endpoint, not the dynamic CRUD route — it needs no module-name guessing:
+  `GET …/api/services/app/Entities/GetAll?entityType=<Entity's fully-qualified C# class name>&maxResultCount=1`
+  (e.g. `entityType=MyOrg.MyApp.Domain.Vehicles.Vehicle`). A 404/"not found" here on the *second*
+  successful boot means something else is wrong (namespace mismatch, missing `[Entity]` attribute) —
+  it is not the two-boot lag, which this endpoint is not subject to.
+- **Do not treat "success" on a restart trigger as proof anything actually happened.**
+  `restart-changed-apps` is gated on detecting a real change (git diff or folder-size signal) — it
+  is a no-op when it finds none, and for the *second, deliberate* boot of code that hasn't changed
+  since the first restart, there is usually nothing new for it to detect. Check the response's
+  `changedFileCount` and `restartedApps` — if `restartedApps` is empty (or you're deliberately
+  forcing a repeat boot of unchanged code), use `force-restart` with an explicit `appTypes` body
+  instead; that is the only call that unconditionally cycles the pod regardless of whether
+  anything changed. Then re-verify by polling **both** the app status reaching `"running"` fresh
+  **and** the entities endpoint above — never assume either from the trigger call's response alone.
 - **Attended / Visual Studio dev:** don't kill VS's host — ask the developer to rebuild + restart in VS (twice for a new entity), then continue.
 - Full runbook (shared with the form skill): `shesha-developer/skills/shesha-form-edit/references/backend-restart.md`.
 
 After the restart, you **MUST ALWAYS** run the `test-entity-crud-api` skill yourself to verify that
 the changes work correctly (it needs the entity live to hit its CRUD endpoints) — do not stop short
-and ask the user to run it. In the ephemeral sandbox this is fully self-contained: restart-and-wait
-→ verify `Crud/GetAll` → force a second boot if it 404s → verify again → run `test-entity-crud-api`,
-all within this turn.
+and ask the user to run it. In the ephemeral sandbox this is fully self-contained and expects
+exactly two boots for a new entity, not a conditional retry: restart-and-wait → verify via
+`Entities/GetAll?entityType=` → force the second boot (`force-restart`, not `restart-changed-apps`)
+→ verify again → run `test-entity-crud-api`, all within this turn.
 
 ## Workflow
 

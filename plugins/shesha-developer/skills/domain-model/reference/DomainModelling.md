@@ -78,11 +78,20 @@ Any new entities that need to be defined ultimately need to inherit from `Entity
 
 ### Entity Class Attributes
 
+**Before using any attribute below for the first time in a given project, verify its actual
+namespace/`using` by grepping that project's own Domain folder for an existing entity that already
+uses it** (e.g. `grep -rn "using.*Auditing\|AuditedAttribute" backend/src/*/Domain/`), rather than
+assuming a fixed namespace from memory or from this doc. ABP/Shesha attribute namespaces have moved
+between versions — e.g. `AuditedAttribute` lives in `Abp.Auditing` in some Shesha versions, not
+`Abp.Domain.Entities.Auditing` as an older sample here once showed. A wrong guess here means a full,
+wasted compile cycle (dotnet watch has to fail, you fix it, then wait for the rebuild) — the grep
+above costs seconds and is authoritative for the exact version this project is actually on.
+
 The following class level attributes should be added to entity classes where relevant.
 
 | **Attribute** | **Description**  |
 | --- | --- |
-| `[Audited]` | Add to any entity class to enable auditing. When applied at the class level, all properties on the entity will be audited, meaning that any changes to their values will be logged. |
+| `[Audited]` | Add to any entity class to enable auditing. When applied at the class level, all properties on the entity will be audited, meaning that any changes to their values will be logged. Lives in `Abp.Auditing` in Shesha 0.44.x — verify against the project as above before assuming this holds for other versions. |
 | `[Discriminator]` | Add to any entity that you expect to inherit from so that a Discriminator column can be added at the database layer. By default, Shesha uses a 'Table per Hierarchy' inheritance strategy. This means that all entity subclasses will be stored in the same table as the base class, and a discriminator column will be used to identify the type of entity being stored. |
 | `[DiscriminatorValue("DiscriminatorName")]` | Add this attribute to entities that inherit from another entity class and where you want to explicitly specify your own discriminator value. If omitted, Shesha will use the entity class's namespace and name, e.g., `MyOrg.MyApp.` |
 | `[Entity]` | Provides parameters to add additional metadata to the entity and control additional aspects of the behavior of the entity: <br/> **`GenerateApplicationService`** - Specifies whether CRUD APIs for this entity should be generated. <br/> **`ApplicationServiceName`** - The name of the application service to be generated for the entity. This will be reflected in the URL of the dynamically generated CRUD API. If not specified, the name of the entity will be used. <br/> **`FriendlyName`** - A more user-friendly name for the entity to be used in the UI. If not specified, the name of the entity will be used. <br/> |
@@ -430,7 +439,8 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
-using Abp.Domain.Entities.Auditing;
+using Abp.Auditing; // AuditedAttribute - a DIFFERENT namespace from the base class below, don't merge
+using Abp.Domain.Entities.Auditing; // FullAuditedEntity<TId> and friends
 using Shesha.Domain;
 using Shesha.Domain.Attributes;
 

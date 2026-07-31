@@ -38,6 +38,14 @@ seconds), never the full build, so a short timeout on the trigger call is correc
 curl -s -X POST --max-time 60 "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/restart-changed-apps"
 ```
 
+**This call is gated on detecting an actual change** (git diff or a folder-size heuristic) — it is a
+genuine no-op when it finds none, and the response can look successful either way. Check
+`restartedApps` (which app types actually got a rolling restart) and `changedFileCount` (how many
+files it saw changed) before assuming anything happened — an empty `restartedApps` means nothing
+restarted, full stop, regardless of the top-level `success` field. If you need to guarantee a
+restart of code that hasn't changed since the last one (see the 2-boot lag below), this call is the
+wrong tool for that — use `force-restart` instead, further down.
+
 Then poll `app-statuses` yourself until **`backend`** specifically reports `"running"` — check only
 the one app type you actually care about, not whether every app in the session is running (an
 admin/public portal can take much longer to cold-start its own `npm install` and is irrelevant to
@@ -72,10 +80,22 @@ continuing to retry — an unbounded fix-and-retry loop against an error you can
 exactly the pattern that burns API credits for no progress.
 
 Then verify against `$SHESHA_BACKEND_URL` (never `localhost`) — including the 2-boot lag described
-below for a brand-new entity: poll `Crud/GetAll`; a 404 means the entity's `EntityConfig` was only
-just seeded and its dynamic controller needs one more boot. Nothing changed on disk since the first
-restart, so `restart-changed-apps` won't detect a reason to run again — force the second boot
-instead (same two-step pattern: trigger, then poll):
+below for a brand-new entity. **Verify with the generic entities endpoint, not the dynamic CRUD
+route** — the dynamic route's `<module>` segment isn't something you can derive reliably (guessing
+it wastes cycles the same way a wrong `using` does), whereas the generic endpoint only needs the
+entity's fully-qualified C# class name, which you already know for certain:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+  "$SHESHA_BACKEND_URL/api/services/app/Entities/GetAll?entityType=<FullyQualifiedEntityClassName>&maxResultCount=1"
+# 200 → live.  A "not found" error here is a real problem (namespace/[Entity] attribute), not the lag.
+```
+
+For a **brand-new** entity specifically, its *dynamic CRUD controller* (not the endpoint above)
+still needs a second boot before it's fully wired up — plan for two boots up front rather than
+reacting to a failure. Nothing changed on disk since the first restart, so `restart-changed-apps`
+won't detect a reason to run again for this — `force-restart` is the only call that unconditionally
+cycles the pod regardless of whether anything changed:
 
 ```bash
 curl -s -X POST --max-time 60 "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SESSION_ID/force-restart" \
@@ -83,10 +103,10 @@ curl -s -X POST --max-time 60 "$SHESHA_AGENT_API_URL/api/app-restart/$SHESHA_SES
 # then poll app-statuses for backend == "running" exactly as above
 ```
 
-Re-check `Crud/GetAll` once more — it should be live now. Then run `/test-entity-crud-api` yourself
-as the final step, exactly as the calling skill's "MANDATORY... THEN test" instruction requires —
-don't stop short and ask the user to run it themselves; the point of this whole mechanism is that you
-have everything needed to complete the loop within this turn.
+Re-check the entities endpoint once more — it should be live now. Then run `/test-entity-crud-api`
+yourself as the final step, exactly as the calling skill's "MANDATORY... THEN test" instruction
+requires — don't stop short and ask the user to run it themselves; the point of this whole mechanism
+is that you have everything needed to complete the loop within this turn.
 
 Skip the rest of this doc in this case — the Headless and Attended sections below both assume you can
 freely stop/rebuild/relaunch the backend process yourself, which you must never do here.
@@ -128,9 +148,11 @@ A **newly added** entity's dynamic CRUD controller registers only on the boot *a
 step 4 succeeds, verify the entity and restart **once more** if needed — don't flail:
 
 ```bash
-# dynamic CRUD endpoint format:  /api/dynamic/<module>/<Entity>/Crud/GetAll
+# Use the generic entities endpoint, not the dynamic CRUD route — the latter's <module>
+# segment isn't reliably derivable and guessing it wastes cycles the same way a wrong
+# `using` does. This one only needs the fully-qualified C# class name, which is never ambiguous.
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
-  "$BASE/api/dynamic/<module>/<Entity>/Crud/GetAll?MaxResultCount=1")
+  "$BASE/api/services/app/Entities/GetAll?entityType=<FullyQualifiedEntityClassName>&MaxResultCount=1")
 # 200 → ready.  404/500 → repeat steps 1–4 ONCE; the controller registers on the second boot.
 ```
 
